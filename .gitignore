@@ -1,3 +1,11 @@
+# Ignoring files according to http://microchip.wikidot.com/faq:72
+/pic24_servo.X/build/
+/pic24_servo.X/dist/
+#Ingoring private Makefiles, to create them open the MPLAB IDE or use the C:\Program Files (x86)\Microchip\MPLABX\<VERSION>\mplab_ide\bin\prjMakefilesGenerator.bat script
+/pic24_servo.X/nbproject/Makefile-*
+/pic24_servo.X/nbproject/Package-*
+/pic24_servo.X/nbproject/private/
+
 # Prerequisites
 *.d
 
