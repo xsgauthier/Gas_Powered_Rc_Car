@@ -14,8 +14,9 @@ int drive_command = 0; // 0 = break, 1 = Reverse, 2 = Forward
 int drive_output = 0;
 int pwm_command = 0; // 0-255
 int pwm_output = 0; // 0-255
-int servo_command = 0; // 0-180
-int servo_output = 0;
+int servo_command = 90; // 0-180
+int servo_output = 90;
+int vmotor = -1;
 
 TimerEvent servoTimer;
 TimerEvent motorTimer;
@@ -29,10 +30,10 @@ void setup()
   
   Wire.begin(4);                // join i2c bus with address #4
   Wire.onReceive(receiveEvent); // register event
-  Wire.onRequest(requestEvent);
+  //Wire.onRequest(requestEvent);
   Serial.begin(9600);           // start serial for output
 
-  servoTimer.set(5, servoTimerFunc);
+  servoTimer.set(150, servoTimerFunc);
   motorTimer.set(50, motorTimerFunc);
 }
 
@@ -44,38 +45,66 @@ void loop()
 
 // Generate a ramp output for servo to move not too fast
 void servoTimerFunc() {
-  if (servo_output < servo_command)
+  vmotor = analogRead(vmotor_analog);
+  long mv = vmotor*45;
+  int error = (mv - 24000);
+
+  int _servo_command = 90 + (error / (1000/5)); // deg/volt
+
+  if (mv < 20000) {
+    servo_output = 90;
+  }
+  else if (servo_output < _servo_command)
   {
     servo_output++;
   }
-  else if (servo_output > servo_command)
+  else if (servo_output > _servo_command)
   {
     servo_output--;
   }
   myservo.write(servo_output);
 }
 
-// Generate a ramp output for servo to move not too fast
+#define BRAKE_SLOPE 1
+#define ACCEL_SLOPE 2
+
+void decr_pwm(int n){
+  if (pwm_output >= n) {
+    pwm_output -= n;
+  } else {
+    pwm_output = 0;
+  }
+}
+
+void incr_pwm(int n) {
+  if (pwm_output <= (pwm_command - n)) {
+    pwm_output += n;
+  } else {
+    pwm_output = pwm_command;
+  }
+}
+
+// Generate a ramp output for motor to move not too fast
 void motorTimerFunc() {
   if ((drive_command & 3) == 0) {
     // want to brake
     if (pwm_output > 0) {
-      pwm_output--;
+      decr_pwm(BRAKE_SLOPE);
     } else {
       drive_output = drive_command;
     }
   } else if ((drive_output & 3) != (drive_command & 3)) {
     // Direction change
     if (pwm_output > 0) {
-      pwm_output--; // must pass by 0
+      decr_pwm(BRAKE_SLOPE); // must pass by 0
     } else {
       drive_output = drive_command;
     }    
   } else {
     if (pwm_output < pwm_command) {
-      pwm_output++;
+      incr_pwm(ACCEL_SLOPE);
     } else if (pwm_output > pwm_command) {
-      pwm_output--;
+      decr_pwm(ACCEL_SLOPE);
     }
   }
   
@@ -111,6 +140,8 @@ void receiveEvent(int howMany)
 
 // function that executes whenever data is requested by master
 // this function is registered as an event, see setup()
-void requestEvent() {
-  Wire.write(analogRead(vmotor_analog)); // respond with message of 2 bytes
-}
+//void requestEvent() {
+//  int x = vmotor;
+//  Wire.write((unsigned char)(x));
+//  Wire.write((unsigned char)(x >> 8));
+//}
